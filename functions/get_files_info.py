@@ -25,12 +25,12 @@ def get_files_info(working_directory, directory = "."):
         return f"Error listing files: {e}"
     
 
-
+# Standard schema for the function
 schema_get_files_info = types.FunctionDeclaration(
     name="get_files_info",
     description="Lists files in a directory with their sizes, constrained to the working directory.",
     parameters = types.Schema(
-        types=types.Type.OBJECT,
+        type=types.Type.OBJECT,
         properties={
             "directory": types.Schema(
                 type = types.Type.STRING,
