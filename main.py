@@ -2,155 +2,109 @@ import os
 from google import genai
 from google.genai import types
 import sys
+from config import MAX_ITERATION
 from dotenv import load_dotenv
 from prompts import system_prompt
-from functions.get_files_info import schema_get_files_info, get_files_info
-from functions.get_files_content import schema_get_file_contents, get_file_contents
-from functions.write_files import schema_write_file, write_file
-from functions.run_python import schema_run_python, run_python
+from call_function import call_function, available_functions
 
 def main():
     load_dotenv()
     api_key = os.environ.get("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key)
-    print("Hello from AI-agent!")
     
-    
-    # check if user provided a prompt and if verbose flag is set
-    if len(sys.argv) < 2:
-        print("Please provide a prompt as a command-line argument.")
-        sys.exit(1)
-    
-    user_input = sys.argv[1]
+    # Check for verbose flag and collect other args
     verbose = "--verbose" in sys.argv
+    args = []
+    for arg in sys.argv[1:]:
+        if not arg.startswith("--"):
+            args.append(arg)
     
-    # If user input is empty
+    if not args:
+        print("Hello from AI-agent!")
+        print('\nUsage: python main.py "your prompt here" [--verbose]')
+        print('Example: python main.py "How do I fix the calculator?"')
+        sys.exit(1)
+        
+    user_input = " ".join(args)
+    
+     # If user input is empty
     if user_input == "":
         print("Input cannot be empty")
         sys.exit(1)
         
-    # Available functions to the model
-    available_functions = types.Tool(
-        function_declarations= [
-            schema_get_files_info,
-            schema_get_file_contents,
-            schema_write_file,
-            schema_run_python
-        ]
-    )
-        
+    
+    if verbose:
+        print(f" User Prompt: {user_input} \n")
+    
+   
     # Users input message
     messages = [
         types.Content(role="user", parts=[types.Part(text=user_input)])
     ]
     
-    max_iterations = 20
-    for i in range(max_iterations):
-        # Generate a response from the model
-        response = client.models.generate_content(
+    iters = 0
+    while True:
+        iters += 1
+        if iters > MAX_ITERATION:
+            print(f"Reached max iterations ({MAX_ITERATION}), stopping.")
+            sys.exit(1)
+            
+        try:
+            final_response = generate_response(client, messages,verbose)
+            if final_response:
+                print("Final response")
+                print(final_response)
+                break
+        except Exception as e:
+            print("Error in generating response:", e)
+            
+    
+def generate_response(client, messages, verbose):
+    response = client.models.generate_content(
             model = "gemini-2.0-flash-001",
             contents = messages,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 tools= [available_functions],
-                
             )
         )
-        
-        # Token Usage
-        prompt_token_count = response.usage_metadata.prompt_token_count
-        response_token_count = response.usage_metadata.candidates_token_count
-        
-        
-        
-        if verbose:
-            print(f"User prompt: {user_input}")
-            print(f"Prompt tokens: {prompt_token_count}")
-            print(f"Response tokens: {response_token_count}")
-        
-        # If no candidates, stop
-        if not response.candidates:
-            print("No candidates, stopping")
-            break  
-        
-        candidate = response.candidates[0]
-        
-        # Add model response to messages, keeps conversation updated 
-        messages.append(candidate.content)
-        
-        # if it has normal text response, print and stop -> we're done here
-        if candidate.content.parts and candidate.content.parts[0].text:
-            print("Final answer:", candidate.content.parts[0].text)
-            break
-            
-        # Otherwise it's a tool call, so we need to handle it(handle tool calls)
-        if response.function_calls:
-            for function_call_part in response.function_calls:
-                function_response = call_function(function_call_part,verbose)
-                
-                
-                if (not function_response.parts or not hasattr(function_response.parts[0], 'function_response')
-                    or not hasattr(function_response.parts[0].function_response, 'response')
-                    ) :
-                    print(f"Fatal: function {function_call_part.name} returned no valid response")
-                    break
-                
-                if verbose:
-                    print(f"Function response: {function_response.parts[0].function_response.response}")
-                    
-                    
-                # Append function response as user message
-                messages.append(function_response)
-                
-        
-        if response.text:
-            print("Model text:", response.text)
-            break
-        
- 
-# Call the appropriate function based on the function call part
-def call_function(function_call_part,verbose=False):
-    func_name = function_call_part.name
-    func_args = function_call_part.args
-
-    func_args["working_directory"] = "./calculator"
     
     if verbose:
-        print(f"Calling function: {func_name}({func_args})")
-    else:
-        print(f"Calling function: {func_name}")
+            print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+            print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+        
+    if response.candidates:
+        for candidate in response.candidates:
+            function_call_content = candidate.content
+            messages.append(function_call_content)
+            
+    if not response.function_calls:
+        return response.text
     
-    # Find the function by name and call it with the provided arguments
-    if func_name == "get_files_info":
-        function_result = get_files_info(**func_args)
-    elif func_name == "get_file_contents":
-        function_result = get_file_contents(**func_args)
-    elif func_name == "write_file":
-        function_result = write_file(**func_args)
-    elif func_name == "run_python_file":
-        function_result = run_python(**func_args)
-    else:
-        #  detailed error message for unknown function
-        return types.Content(
-            role="tool",
-            parts=[
-                types.Part.from_function_response(
-                    name=func_name,
-                    response={"error": f"Unkown function {func_name}"}
-                )
-            ]
-        )
     
-    # detailed function result
-    return types.Content(
-        role="tool",
-        parts=[
-            types.Part.from_function_response(
-                name=func_name,
-                response={'result':function_result}
-            )
-        ]
-    )
+    function_responses = []
+    for function_call_part in response.function_calls:
+                function_call_result = call_function(function_call_part,verbose)
+                
+                
+                if (not function_call_result.parts or not hasattr(function_call_result.parts[0], 'function_response')
+                    or not hasattr(function_call_result.parts[0].function_response, 'response')
+                    ) :
+                    raise Exception("empty function call result")
+                
+                if verbose:
+                    print(f"Function response: {function_call_result.parts[0].function_response.response}")
+                    
+                function_responses.append(function_call_result)
+
+    if not function_responses:
+        raise Exception("no function generated, exiting")
+    
+    for tool_msg in function_responses:
+        messages.append(tool_msg)
+        
+        
+
 
 if __name__ == "__main__":
     main()
