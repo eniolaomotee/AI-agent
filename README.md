@@ -37,12 +37,10 @@ This project is a minimal agentic framework that allows a Large Language Model (
 
 🚀 Running the Agent
 --------------------
-
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   python agent.py "get the contents of lorem.txt"   `
+`   python agent.py "get the contents of lorem.txt"   `
 
 Example output:
-
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   Hello from AI-agent!  User prompt: get the contents of lorem.txt  Final response: wait, this isn't lorem ipsum   `
+`   Hello from AI-agent!  User prompt: get the contents of lorem.txt  Final response: wait, this isn't lorem ipsum   `
 
 📌 Notes
 --------
